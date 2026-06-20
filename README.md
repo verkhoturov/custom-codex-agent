@@ -57,10 +57,18 @@ CODEX_REASONING_EFFORT=xhigh
 Конкретная модель может поддерживать не все уровни. Полный список аргументов
 доступен через `npm run dev -- --help`.
 
-App Server использует отдельный каталог
-`~/.custom-codex-agent/codex-home` для credentials и истории thread. Путь можно
-переопределить через `CUSTOM_CODEX_HOME`. Этот каталог принадлежит приложению;
-его `auth.json` следует защищать как пароль.
+App Server использует отдельный каталог `.codex-data` в корне проекта для
+credentials и истории thread. Этот каталог принадлежит приложению; его
+`auth.json` следует защищать как пароль. При первом запуске приложение создаёт
+`config.toml` с настройкой `forced_login_method = "api"`.
+
+Для запуска нативного Codex CLI с тем же проектным `CODEX_HOME` используйте
+wrapper-команду. Она сама передаёт абсолютный путь к `.codex-data`:
+
+```bash
+npm run codex
+npm run codex -- resume <thread-id>
+```
 
 ## Доступ и approvals
 
@@ -90,7 +98,7 @@ App Server использует отдельный каталог
 
 ```text
 Token usage: total=144 input=139 (+ 14,592 cached) output=5
-To continue this session, run CODEX_HOME='...' codex -c 'forced_login_method="api"' resume 019ee5a7-aa89-7fd3-8c52-2841d1017de9
+To continue this session, run npm run codex -- resume 019ee5a7-aa89-7fd3-8c52-2841d1017de9
 ```
 
 ## Вывод действий

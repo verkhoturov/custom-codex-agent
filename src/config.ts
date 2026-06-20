@@ -1,8 +1,8 @@
 import { existsSync, statSync } from 'node:fs';
-import { homedir } from 'node:os';
-import { join, resolve } from 'node:path';
+import { resolve } from 'node:path';
 import { loadEnvFile } from 'node:process';
 
+import { DEFAULT_CODEX_HOME } from './codex-home.js';
 import {
   type CliState,
   isReasoningEffort,
@@ -18,7 +18,6 @@ export interface ParsedArgs {
 
 const DEFAULT_MODEL = 'gpt-5.5';
 const DEFAULT_REASONING_EFFORT: ReasoningEffort = 'xhigh';
-const DEFAULT_CODEX_HOME = join(homedir(), '.custom-codex-agent', 'codex-home');
 
 export function loadLocalEnv(): void {
   const envPath = resolve(process.cwd(), '.env');
@@ -28,7 +27,7 @@ export function loadLocalEnv(): void {
 }
 
 export function parseArgs(args: string[]): ParsedArgs {
-  const codexHome = resolve(process.env.CUSTOM_CODEX_HOME || DEFAULT_CODEX_HOME);
+  const codexHome = DEFAULT_CODEX_HOME;
   let cwd = process.cwd();
   let model = process.env.CODEX_MODEL || process.env.OPENAI_MODEL || DEFAULT_MODEL;
   let reasoningEffort = parseReasoningEffort(
@@ -131,9 +130,11 @@ function parseReasoningEffort(
   if (!value) {
     return fallback;
   }
+
   if (!isReasoningEffort(value)) {
     throw new Error(`Unsupported ${source}: ${value}. Use ${REASONING_EFFORT_HELP}.`);
   }
+
   return value;
 }
 

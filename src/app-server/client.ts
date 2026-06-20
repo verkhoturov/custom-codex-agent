@@ -1,7 +1,7 @@
 import { type ChildProcessWithoutNullStreams, spawn } from 'node:child_process';
-import { mkdirSync } from 'node:fs';
 import { createInterface, type Interface } from 'node:readline';
 
+import { ensureCodexHome } from '../codex-home.js';
 import {
   type GetAccountResponse,
   isRpcNotification,
@@ -41,7 +41,7 @@ export class CodexAppServerClient {
       return;
     }
 
-    mkdirSync(this.options.codexHome, { mode: 0o700, recursive: true });
+    ensureCodexHome(this.options.codexHome);
 
     const childEnv: NodeJS.ProcessEnv = {
       ...process.env,
@@ -50,15 +50,12 @@ export class CodexAppServerClient {
     delete childEnv.CODEX_ACCESS_TOKEN;
     delete childEnv.OPENAI_API_KEY;
 
-    const child = spawn(
-      'codex',
-      ['app-server', '-c', 'forced_login_method="api"', '-c', 'cli_auth_credentials_store="file"'],
-      {
-        cwd: this.options.cwd,
-        env: childEnv,
-        stdio: ['pipe', 'pipe', 'pipe'],
-      },
-    );
+    const child = spawn('codex', ['app-server', '-c', 'cli_auth_credentials_store="file"'], {
+      cwd: this.options.cwd,
+      env: childEnv,
+      stdio: ['pipe', 'pipe', 'pipe'],
+    });
+
     this.child = child;
     this.stdout = createInterface({ input: child.stdout });
     this.stdout.on('line', line => this.handleLine(line));

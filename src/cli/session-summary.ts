@@ -5,7 +5,6 @@ const numberFormat = new Intl.NumberFormat('en-US');
 export function printSessionSummary(
   usage: ThreadTokenUsage | undefined,
   threadId: string | undefined,
-  codexHome: string,
 ): void {
   const totals = usage?.total;
   const cachedTokens = totals?.cachedInputTokens ?? 0;
@@ -19,14 +18,8 @@ export function printSessionSummary(
   );
 
   if (threadId) {
-    process.stdout.write(
-      `To continue this session, run CODEX_HOME=${shellQuote(codexHome)} codex -c 'forced_login_method="api"' resume ${threadId}\n`,
-    );
+    process.stdout.write(`To continue this session, run npm run codex -- resume ${threadId}\n`);
   }
-}
-
-function shellQuote(value: string): string {
-  return `'${value.replaceAll("'", `'\\''`)}'`;
 }
 
 function formatNumber(value: number): string {

@@ -13,12 +13,9 @@ Run /help for commands. Ctrl+C cancels a turn or exits while idle.\n`);
 export function printStatus(state: CliState): void {
   process.stdout.write(`cwd: ${state.cwd}
 model: ${state.model} (${state.reasoningEffort})
-authentication: API key only
-Codex home: ${state.codexHome}
 sandbox: ${state.sandbox}
 approvals: ${state.approvalPolicy}
-Codex thread: ${state.threadId || 'not started'}
-session persistence: managed by Codex\n`);
+Codex thread: ${state.threadId || 'not started'}\n`);
 }
 
 export function getErrorMessage(error: unknown): string {

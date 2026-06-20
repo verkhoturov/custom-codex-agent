@@ -26,7 +26,7 @@ export { checkCodexCli };
 interface ActiveTurn {
   interruptRequested: boolean;
   turnId?: string;
-  working?: WorkingIndicator;
+  workingIndicator?: WorkingIndicator;
 }
 
 export async function runCli(state: CliState, client: CodexAppServerClient): Promise<void> {
@@ -40,13 +40,13 @@ export async function runCli(state: CliState, client: CodexAppServerClient): Pro
   let exiting = false;
 
   client.setServerRequestHandler(request =>
-    handleServerRequest(request, readline, activeTurn?.working),
+    handleServerRequest(request, readline, activeTurn?.workingIndicator),
   );
 
   readline.on('SIGINT', () => {
     if (activeTurn) {
       activeTurn.interruptRequested = true;
-      activeTurn.working?.hide();
+      activeTurn.workingIndicator?.hide();
       process.stdout.write('\n[interrupting turn]\n');
       if (activeTurn.turnId && state.threadId) {
         void interruptTurn(client, state.threadId, activeTurn.turnId).catch(error => {
@@ -94,7 +94,7 @@ export async function runCli(state: CliState, client: CodexAppServerClient): Pro
     }
   } finally {
     readline.close();
-    printSessionSummary(state.tokenUsage, state.threadId, state.codexHome);
+    printSessionSummary(state.tokenUsage, state.threadId);
   }
 }
 
@@ -104,14 +104,16 @@ async function executeTurn(
   client: CodexAppServerClient,
   activeTurn: ActiveTurn,
 ): Promise<void> {
-  const working = new WorkingIndicator();
-  const output = createAppServerOutputState(() => working.hide());
-  activeTurn.working = working;
+  const workingIndicator = new WorkingIndicator();
+  const output = createAppServerOutputState(() => workingIndicator.hide());
+
+  activeTurn.workingIndicator = workingIndicator;
   process.stdout.write('\n');
-  working.start();
+  workingIndicator.start();
 
   let completed: TurnCompletedParams | undefined;
   let resolveCompletion: (params: TurnCompletedParams) => void = () => undefined;
+
   const completion = new Promise<TurnCompletedParams>(resolve => {
     resolveCompletion = resolve;
   });
@@ -126,18 +128,20 @@ async function executeTurn(
       if (params.tokenUsage) {
         state.tokenUsage = params.tokenUsage;
       }
+
       return;
     }
 
     if (notification.method === 'turn/completed') {
       completed = notification.params as TurnCompletedParams;
       resolveCompletion(completed);
+
       return;
     }
 
     renderAppServerNotification(notification, output);
     if (!output.openLine) {
-      working.show();
+      workingIndicator.show();
     }
   });
 
@@ -148,7 +152,7 @@ async function executeTurn(
     }
 
     completed = await completion;
-    working.hide();
+    workingIndicator.hide();
     finishAppServerOutput(output);
 
     if (!output.streamedText) {
@@ -163,8 +167,8 @@ async function executeTurn(
     }
   } finally {
     unsubscribe();
-    working.stop();
-    activeTurn.working = undefined;
+    workingIndicator.stop();
+    activeTurn.workingIndicator = undefined;
   }
 }
 
@@ -180,9 +184,11 @@ function belongsToActiveTurn(
   if (threadId && notificationThreadId && notificationThreadId !== threadId) {
     return false;
   }
+
   if (turnId && notificationTurnId && notificationTurnId !== turnId) {
     return false;
   }
+
   return true;
 }
 
@@ -190,6 +196,7 @@ function findFinalAgentMessage(completed: TurnCompletedParams): string {
   const turn = completed.turn as TurnCompletedParams['turn'] & { items?: ThreadItem[] };
   const messages = (turn.items || []).filter(item => item.type === 'agentMessage');
   const last = messages.at(-1) as (ThreadItem & { text?: string }) | undefined;
+
   return last?.text || '';
 }
 
