@@ -7,7 +7,6 @@ type OpenLine = 'answer' | 'reasoning';
 
 export interface RunOutputState {
   beforeWrite?: () => void;
-  currentTool?: string;
   openLine?: OpenLine;
   streamedText: boolean;
 }
@@ -21,11 +20,6 @@ export function renderRunEvent(
   output: RunOutputState,
   cliState: CliState,
 ): void {
-  if (process.env.DEBUG_AGENT_EVENTS === '1') {
-    closeOpenLine(output);
-    // process.stdout.write(`[event data]\n${safeStringify(event)}\n`);
-  }
-
   if (event.type === 'raw_model_stream_event') {
     renderRawEvent(event.data, output);
     return;
@@ -38,17 +32,13 @@ export function renderRunEvent(
   captureThreadId(event.item, cliState);
 
   if (event.name === 'tool_called') {
-    closeOpenLine(output);
-    output.currentTool = toolName(event.item);
-    write(output, `[action] ${output.currentTool}\n`);
-    return;
-  }
+    const name = toolName(event.item);
+    if (isInternalCodexTool(name)) {
+      return;
+    }
 
-  if (event.name === 'tool_output') {
     closeOpenLine(output);
-    const thread = cliState.codexThreadId ? `, thread ${cliState.codexThreadId}` : '';
-    write(output, `[action completed] ${output.currentTool || 'tool'}${thread}\n`);
-    output.currentTool = undefined;
+    write(output, `[action] ${name}\n`);
   }
 }
 
@@ -108,4 +98,8 @@ function closeOpenLine(output: RunOutputState): void {
 function write(output: RunOutputState, value: string): void {
   output.beforeWrite?.();
   process.stdout.write(value);
+}
+
+function isInternalCodexTool(name: string): boolean {
+  return name === 'codex' || name === 'codex-reply';
 }
