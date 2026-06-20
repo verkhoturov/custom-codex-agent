@@ -15,7 +15,9 @@ export { checkCodexCli };
 
 export async function runCli(state: CliState, codexMcpServer: MCPServerStdio): Promise<void> {
   const session = new MemorySession();
+  
   const sessionUsage = new Usage();
+
   const readline = createInterface({
     input: process.stdin,
     output: process.stdout,

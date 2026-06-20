@@ -1,6 +1,6 @@
 import type { MemorySession } from '@openai/agents';
 
-import type { CliState, SandboxMode } from '../types.js';
+import { isSandboxMode, type CliState } from '../types.js';
 import { printStatus, printWelcome } from './common.js';
 
 const COMMANDS = `/help                         Show commands
@@ -89,8 +89,4 @@ export async function handleCommand(
 async function resetConversation(state: CliState, session: MemorySession): Promise<void> {
   await session.clearSession();
   state.codexThreadId = undefined;
-}
-
-function isSandboxMode(value: string): value is SandboxMode {
-  return value === 'read-only' || value === 'workspace-write';
 }

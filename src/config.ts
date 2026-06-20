@@ -2,7 +2,7 @@ import { existsSync, statSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { loadEnvFile } from 'node:process';
 
-import type { CliState, SandboxMode } from './types.js';
+import { isSandboxMode, type CliState, type SandboxMode } from './types.js';
 
 export interface ParsedArgs {
   help: boolean;
@@ -10,7 +10,6 @@ export interface ParsedArgs {
 }
 
 const DEFAULT_MODEL = 'gpt-5.5';
-const SANDBOX_MODES = new Set<SandboxMode>(['read-only', 'workspace-write']);
 
 export function loadLocalEnv(): void {
   const envPath = resolve(process.cwd(), '.env');
@@ -45,10 +44,10 @@ export function parseArgs(args: string[]): ParsedArgs {
 
     if (argument === '--sandbox' || argument === '-s') {
       const value = requireValue(args, ++index, argument);
-      if (!SANDBOX_MODES.has(value as SandboxMode)) {
+      if (!isSandboxMode(value)) {
         throw new Error(`Unsupported sandbox mode: ${value}. Use read-only or workspace-write.`);
       }
-      sandbox = value as SandboxMode;
+      sandbox = value;
       continue;
     }
 
