@@ -15,7 +15,6 @@ export { checkCodexCli };
 
 export async function runCli(state: CliState, codexMcpServer: MCPServerStdio): Promise<void> {
   const session = new MemorySession();
-  
   const sessionUsage = new Usage();
 
   const readline = createInterface({
@@ -98,17 +97,11 @@ async function executeTurn(
   const agent = createCodingAgent(state, codexMcpServer);
   const working = new WorkingIndicator();
 
-  const threadContext = state.codexThreadId
-    ? `Continue Codex thread ${state.codexThreadId} with codex-reply.`
-    : 'Start a new Codex thread for this request.';
-
-  const prompt = `${threadContext}\n\nUser request:\n${input}`;
-
   process.stdout.write('\n');
   working.start();
 
   try {
-    const result = await run(agent, prompt, {
+    const result = await run(agent, input, {
       stream: true,
       session,
       signal,

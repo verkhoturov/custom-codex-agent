@@ -26,6 +26,7 @@ export function printWelcome(state: CliState): void {
   process.stdout.write(`Custom Codex Agent
 cwd: ${state.cwd}
 model: ${state.model}
+reasoning effort: ${state.reasoningEffort || 'default'}
 sandbox: ${state.sandbox}
 Run /help for commands. Ctrl+C cancels a turn or exits while idle.\n`);
 }
@@ -33,6 +34,7 @@ Run /help for commands. Ctrl+C cancels a turn or exits while idle.\n`);
 export function printStatus(state: CliState): void {
   process.stdout.write(`cwd: ${state.cwd}
 model: ${state.model}
+reasoning effort: ${state.reasoningEffort || 'default'}
 sandbox: ${state.sandbox}
 Codex thread: ${state.codexThreadId || 'not started'}
 session persistence: disabled\n`);

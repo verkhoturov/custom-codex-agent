@@ -32,6 +32,7 @@ cp .env.example .env
 ```dotenv
 OPENAI_API_KEY=sk-...
 OPENAI_MODEL=gpt-5.5
+OPENAI_REASONING_EFFORT=xhigh
 ```
 
 Файл `.env` исключен из Git.
@@ -57,6 +58,15 @@ npm start
 npm run dev -- --cwd ../my-project --sandbox workspace-write
 ```
 
+Модель и reasoning effort также можно задать аргументами:
+
+```bash
+npm run dev -- --model gpt-5.5 --reasoning-effort xhigh
+```
+
+Допустимые значения effort: `none`, `minimal`, `low`, `medium`, `high`,
+`xhigh`. Поддержка конкретного уровня зависит от выбранной модели.
+
 Доступны только `read-only` и `workspace-write`. Интеграция запускает Codex с
 `approval-policy: never`, как в официальном примере Agents SDK + Codex MCP.
 Изоляцию операций обеспечивает выбранный sandbox; режим полного доступа намеренно
@@ -70,7 +80,7 @@ npm run dev -- --cwd ../my-project --sandbox workspace-write
 | `/new` | Начать новый диалог и Codex thread |
 | `/resume <thread-id>` | Продолжить известный Codex thread |
 | `/status` | Показать текущие настройки |
-| `/model [model]` | Показать или изменить модель |
+| `/model [model] [effort]` | Показать или изменить модель и reasoning effort |
 | `/permissions [mode]` | Переключить `read-only` / `workspace-write` |
 | `/clear` | Очистить экран и начать новый диалог |
 | `/exit` | Завершить работу |

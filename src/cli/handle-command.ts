@@ -1,13 +1,13 @@
 import type { MemorySession } from '@openai/agents';
 
-import { isSandboxMode, type CliState } from '../types.js';
+import { type CliState, isReasoningEffort, isSandboxMode } from '../types.js';
 import { printStatus, printWelcome } from './common.js';
 
 const COMMANDS = `/help                         Show commands
 /new                          Start a new in-memory conversation
 /resume <thread-id>           Continue a known Codex thread
 /status                       Show current configuration
-/model [model]                Show or change the active model
+/model [model] [effort]       Show or change model and reasoning effort
 /permissions [mode]           Show or set read-only/workspace-write
 /clear                        Clear the screen and start a new conversation
 /exit                         Exit the CLI`;
@@ -46,15 +46,32 @@ export async function handleCommand(
       printStatus(state);
       return false;
 
-    case '/model':
+    case '/model': {
       if (!argument) {
-        process.stdout.write(`Model: ${state.model}\n`);
+        process.stdout.write(
+          `Model: ${state.model} (reasoning: ${state.reasoningEffort || 'default'})\n`,
+        );
         return false;
       }
-      state.model = argument;
+      const [model, effort] = argumentsList;
+      if (!model || argumentsList.length > 2) {
+        process.stdout.write('Usage: /model <model> [none|minimal|low|medium|high|xhigh]\n');
+        return false;
+      }
+      if (effort) {
+        if (!isReasoningEffort(effort)) {
+          process.stdout.write('Usage: /model <model> [none|minimal|low|medium|high|xhigh]\n');
+          return false;
+        }
+        state.reasoningEffort = effort;
+      }
+      state.model = model;
       await resetConversation(state, session);
-      process.stdout.write(`Model changed to ${argument}. Started a new conversation.\n`);
+      process.stdout.write(
+        `Model changed to ${state.model} (reasoning: ${state.reasoningEffort || 'default'}). Started a new conversation.\n`,
+      );
       return false;
+    }
 
     case '/permissions':
       if (!argument) {

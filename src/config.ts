@@ -2,7 +2,13 @@ import { existsSync, statSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { loadEnvFile } from 'node:process';
 
-import { isSandboxMode, type CliState, type SandboxMode } from './types.js';
+import {
+  type CliState,
+  isReasoningEffort,
+  isSandboxMode,
+  type ReasoningEffort,
+  type SandboxMode,
+} from './types.js';
 
 export interface ParsedArgs {
   help: boolean;
@@ -21,6 +27,7 @@ export function loadLocalEnv(): void {
 export function parseArgs(args: string[]): ParsedArgs {
   let cwd = process.cwd();
   let model = process.env.OPENAI_MODEL || DEFAULT_MODEL;
+  let reasoningEffort = parseReasoningEffort(process.env.OPENAI_REASONING_EFFORT);
   let sandbox: SandboxMode = 'workspace-write';
   let help = false;
 
@@ -42,6 +49,15 @@ export function parseArgs(args: string[]): ParsedArgs {
       continue;
     }
 
+    if (argument === '--reasoning-effort' || argument === '-r') {
+      const value = requireValue(args, ++index, argument);
+      if (!isReasoningEffort(value)) {
+        throw new Error(`Unsupported reasoning effort: ${value}. Use ${REASONING_EFFORT_HELP}.`);
+      }
+      reasoningEffort = value;
+      continue;
+    }
+
     if (argument === '--sandbox' || argument === '-s') {
       const value = requireValue(args, ++index, argument);
       if (!isSandboxMode(value)) {
@@ -59,7 +75,7 @@ export function parseArgs(args: string[]): ParsedArgs {
     throw new Error(`Working directory does not exist: ${cwd}`);
   }
 
-  return { help, state: { cwd, model, sandbox } };
+  return { help, state: { cwd, model, reasoningEffort, sandbox } };
 }
 
 export function usage(): string {
@@ -68,10 +84,23 @@ export function usage(): string {
 Options:
   -C, --cwd <path>        Working directory (default: current directory)
   -m, --model <model>     Model for Agents SDK and Codex (default: gpt-5.5)
+  -r, --reasoning-effort  none, minimal, low, medium, high, or xhigh
   -s, --sandbox <mode>    read-only or workspace-write
   -h, --help              Show this help
 
 Run /help inside the CLI to list interactive commands.`;
+}
+
+const REASONING_EFFORT_HELP = 'none, minimal, low, medium, high, or xhigh';
+
+function parseReasoningEffort(value: string | undefined): ReasoningEffort | undefined {
+  if (!value) {
+    return undefined;
+  }
+  if (!isReasoningEffort(value)) {
+    throw new Error(`Unsupported OPENAI_REASONING_EFFORT: ${value}. Use ${REASONING_EFFORT_HELP}.`);
+  }
+  return value;
 }
 
 function requireValue(args: string[], index: number, flag: string): string {

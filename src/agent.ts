@@ -29,24 +29,26 @@ export function createCodexMcpClient(state: CliState): MCPServerStdio {
 
 export function createCodingAgent(state: CliState, codexMcpServer: MCPServerStdio): Agent {
   const threadInstruction = state.codexThreadId
-    ? `Continue Codex thread ${state.codexThreadId} with codex-reply.`
-    : 'Start a Codex thread with the codex tool.';
+    ? `Codex thread ${state.codexThreadId} is available for repository work. Continue it with codex-reply when needed.`
+    : 'No Codex thread is active. Start one only when the request requires repository inspection, code changes, or command execution.';
 
   return new Agent({
     name: 'Custom Codex Agent',
     model: state.model,
     modelSettings: {
       reasoning: {
+        effort: state.reasoningEffort,
         summary: 'auto',
       },
     },
     instructions: `You are an expert software engineering agent focused on analyzing and writing code.
 
-Delegate repository inspection, code analysis, file changes, and command execution to the Codex MCP tools. Do not claim that you inspected or changed the workspace unless Codex did it. ${threadInstruction}
+Answer simple conversational and general-knowledge questions directly. Delegate repository inspection, code analysis, file changes, and command execution to the Codex MCP tools. Do not claim that you inspected or changed the workspace unless Codex did it. ${threadInstruction}
 
 When starting a thread, call codex with:
 - cwd: ${JSON.stringify(state.cwd)}
 - model: ${JSON.stringify(state.model)}
+- config: ${JSON.stringify({ model_reasoning_effort: state.reasoningEffort })}
 - sandbox: ${JSON.stringify(state.sandbox)}
 - approval-policy: "never"
 - include-plan-tool: true
