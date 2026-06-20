@@ -1,4 +1,4 @@
-export type SandboxMode = "read-only" | "workspace-write";
+export type SandboxMode = 'read-only' | 'workspace-write';
 
 export interface CliState {
   cwd: string;

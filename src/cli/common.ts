@@ -1,25 +1,25 @@
-import type { RunItem } from "@openai/agents";
+import type { RunItem } from '@openai/agents';
 
-import type { CliState } from "../types.js";
+import type { CliState } from '../types.js';
 
 export function captureThreadId(item: RunItem, state: CliState): void {
-  if (item.type !== "tool_call_output_item") {
+  if (item.type !== 'tool_call_output_item') {
     return;
   }
 
   const threadId = item.customData?.codexThreadId;
-  if (typeof threadId === "string") {
+  if (typeof threadId === 'string') {
     state.codexThreadId = threadId;
   }
 }
 
 export function toolName(item: RunItem): string {
-  if (item.type !== "tool_call_item") {
-    return "tool";
+  if (item.type !== 'tool_call_item') {
+    return 'tool';
   }
 
   const rawItem = item.rawItem as { name?: string };
-  return rawItem.name || "tool";
+  return rawItem.name || 'tool';
 }
 
 export function printWelcome(state: CliState): void {
@@ -34,7 +34,7 @@ export function printStatus(state: CliState): void {
   process.stdout.write(`cwd: ${state.cwd}
 model: ${state.model}
 sandbox: ${state.sandbox}
-Codex thread: ${state.codexThreadId || "not started"}
+Codex thread: ${state.codexThreadId || 'not started'}
 session persistence: disabled\n`);
 }
 

@@ -1,4 +1,4 @@
-const CLEAR_LINE = "\r\u001b[2K";
+const CLEAR_LINE = '\r\u001b[2K';
 
 export class WorkingIndicator {
   private interval?: ReturnType<typeof setInterval>;

@@ -1,7 +1,7 @@
-import type { MemorySession } from "@openai/agents";
+import type { MemorySession } from '@openai/agents';
 
-import type { CliState, SandboxMode } from "../types.js";
-import { printStatus, printWelcome } from "./common.js";
+import type { CliState, SandboxMode } from '../types.js';
+import { printStatus, printWelcome } from './common.js';
 
 const COMMANDS = `/help                         Show commands
 /new                          Start a new in-memory conversation
@@ -18,22 +18,22 @@ export async function handleCommand(
   session: MemorySession,
 ): Promise<boolean> {
   const [command, ...argumentsList] = input.split(/\s+/);
-  const argument = argumentsList.join(" ").trim();
+  const argument = argumentsList.join(' ').trim();
 
   switch (command) {
-    case "/help":
+    case '/help':
       process.stdout.write(`${COMMANDS}\n`);
       return false;
 
-    case "/new":
+    case '/new':
       await resetConversation(state, session);
-      process.stdout.write("Started a new conversation.\n");
+      process.stdout.write('Started a new conversation.\n');
       return false;
 
-    case "/resume":
+    case '/resume':
       if (!argument) {
         process.stdout.write(
-          `Usage: /resume <thread-id>${state.codexThreadId ? `\nCurrent: ${state.codexThreadId}` : ""}\n`,
+          `Usage: /resume <thread-id>${state.codexThreadId ? `\nCurrent: ${state.codexThreadId}` : ''}\n`,
         );
         return false;
       }
@@ -42,48 +42,42 @@ export async function handleCommand(
       process.stdout.write(`Will resume Codex thread ${argument}.\n`);
       return false;
 
-    case "/status":
+    case '/status':
       printStatus(state);
       return false;
 
-    case "/model":
+    case '/model':
       if (!argument) {
         process.stdout.write(`Model: ${state.model}\n`);
         return false;
       }
       state.model = argument;
       await resetConversation(state, session);
-      process.stdout.write(
-        `Model changed to ${argument}. Started a new conversation.\n`,
-      );
+      process.stdout.write(`Model changed to ${argument}. Started a new conversation.\n`);
       return false;
 
-    case "/permissions":
+    case '/permissions':
       if (!argument) {
         process.stdout.write(`Sandbox: ${state.sandbox}\n`);
         return false;
       }
       if (!isSandboxMode(argument)) {
-        process.stdout.write(
-          "Usage: /permissions <read-only|workspace-write>\n",
-        );
+        process.stdout.write('Usage: /permissions <read-only|workspace-write>\n');
         return false;
       }
       state.sandbox = argument;
       await resetConversation(state, session);
-      process.stdout.write(
-        `Sandbox changed to ${argument}. Started a new conversation.\n`,
-      );
+      process.stdout.write(`Sandbox changed to ${argument}. Started a new conversation.\n`);
       return false;
 
-    case "/clear":
+    case '/clear':
       console.clear();
       await resetConversation(state, session);
       printWelcome(state);
       return false;
 
-    case "/exit":
-    case "/quit":
+    case '/exit':
+    case '/quit':
       return true;
 
     default:
@@ -92,14 +86,11 @@ export async function handleCommand(
   }
 }
 
-async function resetConversation(
-  state: CliState,
-  session: MemorySession,
-): Promise<void> {
+async function resetConversation(state: CliState, session: MemorySession): Promise<void> {
   await session.clearSession();
   state.codexThreadId = undefined;
 }
 
 function isSandboxMode(value: string): value is SandboxMode {
-  return value === "read-only" || value === "workspace-write";
+  return value === 'read-only' || value === 'workspace-write';
 }

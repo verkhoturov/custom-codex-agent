@@ -1,23 +1,23 @@
-import { Agent, MCPServerStdio } from "@openai/agents";
+import { Agent, MCPServerStdio } from '@openai/agents';
 
-import type { CliState } from "./types.js";
+import type { CliState } from './types.js';
 
 export function createCodexMcpClient(state: CliState): MCPServerStdio {
   return new MCPServerStdio({
-    name: "Codex CLI",
-    command: "codex",
-    args: ["mcp-server"],
+    name: 'Codex CLI',
+    command: 'codex',
+    args: ['mcp-server'],
     cwd: state.cwd,
     cacheToolsList: true,
     clientSessionTimeoutSeconds: 3600,
     timeout: 3_600_000,
     useStructuredContent: true,
     toolFilter: {
-      allowedToolNames: ["codex", "codex-reply"],
+      allowedToolNames: ['codex', 'codex-reply'],
     },
     customDataExtractor(context) {
       const threadId = context.structuredContent?.threadId;
-      if (typeof threadId !== "string") {
+      if (typeof threadId !== 'string') {
         return undefined;
       }
 
@@ -27,20 +27,17 @@ export function createCodexMcpClient(state: CliState): MCPServerStdio {
   });
 }
 
-export function createCodingAgent(
-  state: CliState,
-  codexMcpServer: MCPServerStdio,
-): Agent {
+export function createCodingAgent(state: CliState, codexMcpServer: MCPServerStdio): Agent {
   const threadInstruction = state.codexThreadId
     ? `Continue Codex thread ${state.codexThreadId} with codex-reply.`
-    : "Start a Codex thread with the codex tool.";
+    : 'Start a Codex thread with the codex tool.';
 
   return new Agent({
-    name: "Custom Codex Agent",
+    name: 'Custom Codex Agent',
     model: state.model,
     modelSettings: {
       reasoning: {
-        summary: "auto",
+        summary: 'auto',
       },
     },
     instructions: `You are an expert software engineering agent focused on analyzing and writing code.

@@ -1,26 +1,19 @@
-import { createInterface } from "node:readline/promises";
+import { createInterface } from 'node:readline/promises';
 
-import { MemorySession, run, Usage, type MCPServerStdio } from "@openai/agents";
+import { type MCPServerStdio, MemorySession, run, Usage } from '@openai/agents';
 
-import { createCodingAgent } from "../agent.js";
-import type { CliState } from "../types.js";
-import { checkCodexCli } from "./check-codex-cli.js";
-import { getErrorMessage, printWelcome } from "./common.js";
-import { handleCommand } from "./handle-command.js";
-import {
-  createRunOutputState,
-  finishRunOutput,
-  renderRunEvent,
-} from "./render-run-event.js";
-import { printSessionSummary } from "./session-summary.js";
-import { WorkingIndicator } from "./working-indicator.js";
+import { createCodingAgent } from '../agent.js';
+import type { CliState } from '../types.js';
+import { checkCodexCli } from './check-codex-cli.js';
+import { getErrorMessage, printWelcome } from './common.js';
+import { handleCommand } from './handle-command.js';
+import { createRunOutputState, finishRunOutput, renderRunEvent } from './render-run-event.js';
+import { printSessionSummary } from './session-summary.js';
+import { WorkingIndicator } from './working-indicator.js';
 
 export { checkCodexCli };
 
-export async function runCli(
-  state: CliState,
-  codexMcpServer: MCPServerStdio,
-): Promise<void> {
+export async function runCli(state: CliState, codexMcpServer: MCPServerStdio): Promise<void> {
   const session = new MemorySession();
   const sessionUsage = new Usage();
   const readline = createInterface({
@@ -32,10 +25,10 @@ export async function runCli(
   let activeAbortController: AbortController | undefined;
   let exiting = false;
 
-  readline.on("SIGINT", () => {
+  readline.on('SIGINT', () => {
     if (activeAbortController) {
       activeAbortController.abort();
-      process.stdout.write("\n[turn cancelled]\n");
+      process.stdout.write('\n[turn cancelled]\n');
       return;
     }
 
@@ -49,7 +42,7 @@ export async function runCli(
     while (!exiting) {
       let input: string;
       try {
-        input = (await readline.question("\nyou> ")).trim();
+        input = (await readline.question('\nyou> ')).trim();
       } catch {
         break;
       }
@@ -58,7 +51,7 @@ export async function runCli(
         continue;
       }
 
-      if (input.startsWith("/")) {
+      if (input.startsWith('/')) {
         const shouldExit = await handleCommand(input, state, session);
 
         if (shouldExit) {
@@ -105,11 +98,11 @@ async function executeTurn(
 
   const threadContext = state.codexThreadId
     ? `Continue Codex thread ${state.codexThreadId} with codex-reply.`
-    : "Start a new Codex thread for this request.";
+    : 'Start a new Codex thread for this request.';
 
   const prompt = `${threadContext}\n\nUser request:\n${input}`;
 
-  process.stdout.write("\n");
+  process.stdout.write('\n');
   working.start();
 
   try {
@@ -134,7 +127,7 @@ async function executeTurn(
       finishRunOutput(output);
       await result.completed;
 
-      if (!output.streamedText && typeof result.finalOutput === "string") {
+      if (!output.streamedText && typeof result.finalOutput === 'string') {
         process.stdout.write(`agent> ${result.finalOutput}\n`);
       }
     } finally {

@@ -1,8 +1,8 @@
 #!/usr/bin/env node
 
-import { createCodexMcpClient } from "./agent.js";
-import { checkCodexCli, runCli } from "./cli/index.js";
-import { loadLocalEnv, parseArgs, usage } from "./config.js";
+import { createCodexMcpClient } from './agent.js';
+import { checkCodexCli, runCli } from './cli/index.js';
+import { loadLocalEnv, parseArgs, usage } from './config.js';
 
 async function main(): Promise<void> {
   loadLocalEnv();
@@ -15,7 +15,7 @@ async function main(): Promise<void> {
 
   if (!process.env.OPENAI_API_KEY) {
     throw new Error(
-      "OPENAI_API_KEY is not set. Add it to .env or export it in your shell. ChatGPT login in Codex CLI does not authenticate the Agents SDK.",
+      'OPENAI_API_KEY is not set. Add it to .env or export it in your shell. ChatGPT login in Codex CLI does not authenticate the Agents SDK.',
     );
   }
 
