@@ -1,56 +1,70 @@
-import type { CliState } from '../types.js';
+import type { ReasoningEffort, SandboxMode } from '../types.js';
 import type { AppServerClient } from './client.js';
 import type { ThreadResumeResponse, ThreadStartResponse, TurnStartResponse } from './protocol.js';
 
-const DEVELOPER_INSTRUCTIONS =
-  'You are a software engineering agent focused on analyzing repositories, writing code, running commands, and explaining results clearly.';
+export interface ThreadSettings {
+  approvalPolicy: 'never' | 'on-request' | 'untrusted';
+  cwd: string;
+  developerInstructions: string;
+  ephemeral: boolean;
+  model: string;
+  reasoningEffort: ReasoningEffort;
+  sandbox: SandboxMode;
+}
 
-export async function startThread(client: AppServerClient, state: CliState): Promise<string> {
+export interface TurnSettings {
+  approvalPolicy: ThreadSettings['approvalPolicy'];
+  cwd: string;
+  effort: ReasoningEffort;
+  input: string;
+  model: string;
+  outputSchema?: Record<string, unknown>;
+  threadId: string;
+}
+
+export async function startThread(
+  client: AppServerClient,
+  settings: ThreadSettings,
+): Promise<string> {
   const response = await client.request<ThreadStartResponse>('thread/start', {
-    approvalPolicy: state.approvalPolicy,
-    config: { model_reasoning_effort: state.reasoningEffort },
-    cwd: state.cwd,
-    developerInstructions: DEVELOPER_INSTRUCTIONS,
-    ephemeral: false,
-    model: state.model,
-    sandbox: state.sandbox,
+    approvalPolicy: settings.approvalPolicy,
+    config: { model_reasoning_effort: settings.reasoningEffort },
+    cwd: settings.cwd,
+    developerInstructions: settings.developerInstructions,
+    ephemeral: settings.ephemeral,
+    model: settings.model,
+    sandbox: settings.sandbox,
   });
-  state.threadId = response.thread.id;
   return response.thread.id;
 }
 
 export async function resumeThread(
   client: AppServerClient,
-  state: CliState,
   threadId: string,
+  settings: ThreadSettings,
 ): Promise<string> {
   const response = await client.request<ThreadResumeResponse>('thread/resume', {
-    approvalPolicy: state.approvalPolicy,
-    config: { model_reasoning_effort: state.reasoningEffort },
-    cwd: state.cwd,
-    developerInstructions: DEVELOPER_INSTRUCTIONS,
-    model: state.model,
-    sandbox: state.sandbox,
+    approvalPolicy: settings.approvalPolicy,
+    config: { model_reasoning_effort: settings.reasoningEffort },
+    cwd: settings.cwd,
+    developerInstructions: settings.developerInstructions,
+    model: settings.model,
+    sandbox: settings.sandbox,
     threadId,
   });
-  state.threadId = response.thread.id;
   return response.thread.id;
 }
 
-export async function startTurn(
-  client: AppServerClient,
-  state: CliState,
-  input: string,
-): Promise<string> {
-  const threadId = state.threadId || (await startThread(client, state));
+export async function startTurn(client: AppServerClient, settings: TurnSettings): Promise<string> {
   const response = await client.request<TurnStartResponse>('turn/start', {
-    approvalPolicy: state.approvalPolicy,
-    cwd: state.cwd,
-    effort: state.reasoningEffort,
-    input: [{ text: input, text_elements: [], type: 'text' }],
-    model: state.model,
+    approvalPolicy: settings.approvalPolicy,
+    cwd: settings.cwd,
+    effort: settings.effort,
+    input: [{ text: settings.input, text_elements: [], type: 'text' }],
+    model: settings.model,
+    ...(settings.outputSchema ? { outputSchema: settings.outputSchema } : {}),
     summary: 'auto',
-    threadId,
+    threadId: settings.threadId,
   });
   return response.turn.id;
 }

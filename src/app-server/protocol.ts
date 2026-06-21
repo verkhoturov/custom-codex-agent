@@ -68,6 +68,9 @@ export interface FileChange {
 }
 
 export interface ThreadItem {
+  agentPath?: string;
+  agentsStates?: Record<string, { message: string | null; status: string }>;
+  agentThreadId?: string;
   aggregatedOutput?: string | null;
   changes?: FileChange[];
   command?: string;
@@ -75,7 +78,13 @@ export interface ThreadItem {
   error?: unknown;
   exitCode?: number | null;
   id: string;
+  kind?: string;
+  model?: string | null;
+  prompt?: string | null;
   query?: string;
+  reasoningEffort?: string | null;
+  receiverThreadIds?: string[];
+  senderThreadId?: string;
   server?: string;
   status?: string;
   text?: string;

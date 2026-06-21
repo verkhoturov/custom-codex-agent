@@ -1,6 +1,13 @@
+import { createAgentProfiles } from '../agents/profiles.js';
 import type { AppServerClient } from '../app-server/client.js';
 import { resumeThread } from '../app-server/session.js';
-import { type CliState, isReasoningEffort, isSandboxMode, type ReasoningEffort } from '../types.js';
+import {
+  AGENT_ROLES,
+  type CliState,
+  isReasoningEffort,
+  isSandboxMode,
+  type ReasoningEffort,
+} from '../types.js';
 import { printStatus, printWelcome } from './session-output.js';
 import type { Terminal } from './terminal.js';
 
@@ -27,13 +34,13 @@ const COMMANDS: CliCommand[] = [
     usage: '/help',
   },
   {
-    description: 'Start a new Codex thread',
+    description: 'Start a new multi-agent workflow',
     execute: startNewThread,
     names: ['/new'],
     usage: '/new',
   },
   {
-    description: 'Resume a saved Codex thread',
+    description: 'Resume a saved coordinator thread',
     execute: resumeSavedThread,
     names: ['/resume'],
     usage: '/resume <thread-id>',
@@ -45,7 +52,13 @@ const COMMANDS: CliCommand[] = [
     usage: '/status',
   },
   {
-    description: 'Show or change model and reasoning effort',
+    description: 'Show multi-agent workflow and role profiles',
+    execute: showAgents,
+    names: ['/agents', '/workflow'],
+    usage: '/agents',
+  },
+  {
+    description: 'Show or change implementer model and effort override',
     execute: changeModel,
     names: ['/model'],
     usage: '/model [model] [effort]',
@@ -100,8 +113,8 @@ function showHelp({ terminal }: CommandContext): CommandResult {
 }
 
 function startNewThread({ state, terminal }: CommandContext): CommandResult {
-  resetThread(state);
-  terminal.write('Started a new conversation.\n');
+  resetWorkflow(state);
+  terminal.write('Started a new multi-agent conversation.\n');
   return 'continue';
 }
 
@@ -112,13 +125,25 @@ async function resumeSavedThread(
   const threadId = args.join(' ').trim();
   if (!threadId) {
     terminal.write(
-      `Usage: /resume <thread-id>${state.threadId ? `\nCurrent: ${state.threadId}` : ''}\n`,
+      `Usage: /resume <thread-id>${state.workflow.coordinatorThreadId ? `\nCurrent: ${state.workflow.coordinatorThreadId}` : ''}\n`,
     );
     return 'continue';
   }
-  await resumeThread(client, state, threadId);
-  state.tokenUsage = undefined;
-  terminal.write(`Resumed Codex thread ${state.threadId}.\n`);
+  const coordinator = createAgentProfiles(state).coordinator;
+  const coordinatorThreadId = await resumeThread(client, threadId, {
+    approvalPolicy: state.approvalPolicy,
+    cwd: state.cwd,
+    developerInstructions: coordinator.developerInstructions,
+    ephemeral: coordinator.ephemeral,
+    model: coordinator.model,
+    reasoningEffort: coordinator.reasoningEffort,
+    sandbox: coordinator.sandbox,
+  });
+  resetWorkflow(state);
+  state.workflow.coordinatorThreadId = coordinatorThreadId;
+  terminal.write(
+    `Resumed coordinator thread ${state.workflow.coordinatorThreadId}. Worker threads will start fresh.\n`,
+  );
   return 'continue';
 }
 
@@ -127,9 +152,30 @@ function showStatus({ state, terminal }: CommandContext): CommandResult {
   return 'continue';
 }
 
+function showAgents({ state, terminal }: CommandContext): CommandResult {
+  const profiles = createAgentProfiles(state);
+  terminal.write('Workflow: always enabled\n');
+  for (const role of AGENT_ROLES) {
+    const profile = profiles[role];
+    const threadId = role === 'coordinator' ? state.workflow.coordinatorThreadId : undefined;
+    terminal.write(
+      `${role}: ${profile.model} (${describeEffort(state, role, profile.reasoningEffort)}), sandbox=${profile.sandbox}, thread=${threadId || (profile.ephemeral ? 'ephemeral' : 'not started')}\n`,
+    );
+  }
+  if (state.workflow.lastRoute) {
+    const agents = state.workflow.lastRoute.agents;
+    terminal.write(
+      `Last route: ${agents.length > 0 ? agents.join(', ') : 'coordinator'}; complexity=${state.workflow.lastRoute.complexity}\n`,
+    );
+  }
+  return 'continue';
+}
+
 function changeModel({ state, terminal }: CommandContext, args: string[]): CommandResult {
   if (args.length === 0) {
-    terminal.write(`Model: ${state.model} (reasoning: ${state.reasoningEffort})\n`);
+    terminal.write(
+      `Implementer: ${state.model} (reasoning: ${state.reasoningEffortOverride || 'dynamic by complexity'})\n`,
+    );
     return 'continue';
   }
   const settings = parseModelSettings(args);
@@ -138,12 +184,10 @@ function changeModel({ state, terminal }: CommandContext, args: string[]): Comma
     return 'continue';
   }
   state.model = settings.model;
-  if (settings.effort) {
-    state.reasoningEffort = settings.effort;
-  }
-  resetThread(state);
+  state.reasoningEffortOverride = settings.effort;
+  resetWorkflow(state);
   terminal.write(
-    `Model changed to ${state.model} (${state.reasoningEffort}). Started a new conversation.\n`,
+    `Implementer changed to ${state.model} (${state.reasoningEffortOverride || 'dynamic reasoning'}). Started a new conversation.\n`,
   );
   return 'continue';
 }
@@ -159,21 +203,34 @@ function changePermissions({ state, terminal }: CommandContext, args: string[]):
     return 'continue';
   }
   state.sandbox = mode;
-  resetThread(state);
-  terminal.write(`Sandbox changed to ${mode}. Started a new conversation.\n`);
+  resetWorkflow(state);
+  terminal.write(`Implementer sandbox changed to ${mode}. Started a new conversation.\n`);
   return 'continue';
 }
 
 function clearConversation({ state, terminal }: CommandContext): CommandResult {
   terminal.clear();
-  resetThread(state);
+  resetWorkflow(state);
   printWelcome(terminal, state);
   return 'continue';
 }
 
-function resetThread(state: CliState): void {
-  state.threadId = undefined;
-  state.tokenUsage = undefined;
+function resetWorkflow(state: CliState): void {
+  state.workflow = { usageByRole: {} };
+}
+
+function describeEffort(
+  state: CliState,
+  role: (typeof AGENT_ROLES)[number],
+  configured: ReasoningEffort,
+): string {
+  if (role === 'analyzer') {
+    return `dynamic by complexity, normal=${configured}`;
+  }
+  if (role === 'implementer' && !state.reasoningEffortOverride) {
+    return `dynamic by complexity, normal=${configured}`;
+  }
+  return role === 'implementer' ? `${configured}, fixed override` : configured;
 }
 
 interface ModelSettings {

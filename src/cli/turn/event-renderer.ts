@@ -96,6 +96,22 @@ function renderItemStarted(output: AppServerOutputState, item: ThreadItem): void
 
     case 'fileChange':
       renderFileChanges(output, item.changes);
+      return;
+
+    case 'collabAgentToolCall':
+      closeOpenLine(output);
+      write(
+        output,
+        `[subagent] ${item.tool || 'activity'}${item.model ? ` model=${item.model}` : ''}\n`,
+      );
+      return;
+
+    case 'subAgentActivity':
+      closeOpenLine(output);
+      write(
+        output,
+        `[subagent ${item.kind || 'activity'}] ${item.agentPath || item.agentThreadId || ''}\n`,
+      );
   }
 }
 
@@ -105,6 +121,17 @@ function renderItemCompleted(output: AppServerOutputState, item: ThreadItem): vo
     if (typeof item.exitCode === 'number' && item.exitCode !== 0) {
       write(output, `[command failed] exit=${item.exitCode}\n`);
     }
+    return;
+  }
+  if (item.type === 'collabAgentToolCall') {
+    closeOpenLine(output);
+    const states = Object.entries(item.agentsStates || {})
+      .map(([threadId, state]) => `${threadId}=${state.status}`)
+      .join(', ');
+    write(
+      output,
+      `[subagent ${item.status || 'completed'}] ${item.tool || 'activity'}${states ? ` ${states}` : ''}\n`,
+    );
   }
 }
 

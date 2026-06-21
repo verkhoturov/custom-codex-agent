@@ -5,7 +5,6 @@ import {
   DEFAULT_APPROVAL_POLICY,
   DEFAULT_CODEX_HOME,
   DEFAULT_MODEL,
-  DEFAULT_REASONING_EFFORT,
   DEFAULT_SANDBOX,
 } from '../config.js';
 import {
@@ -26,10 +25,9 @@ export interface ParsedArgs {
 export function parseArgs(args: string[]): ParsedArgs {
   let cwd = process.cwd();
   let model = process.env.CODEX_MODEL || process.env.OPENAI_MODEL || DEFAULT_MODEL;
-  let reasoningEffort = parseReasoningEffort(
+  let reasoningEffortOverride = parseReasoningEffort(
     process.env.CODEX_REASONING_EFFORT || process.env.OPENAI_REASONING_EFFORT,
     'CODEX_REASONING_EFFORT',
-    DEFAULT_REASONING_EFFORT,
   );
   let sandbox: SandboxMode = DEFAULT_SANDBOX;
   let help = false;
@@ -61,7 +59,7 @@ export function parseArgs(args: string[]): ParsedArgs {
       if (!isReasoningEffort(value)) {
         throw new Error(`Unsupported reasoning effort: ${value}. Use ${REASONING_EFFORT_HELP}.`);
       }
-      reasoningEffort = value;
+      reasoningEffortOverride = value;
       continue;
     }
 
@@ -89,8 +87,9 @@ export function parseArgs(args: string[]): ParsedArgs {
       codexHome: DEFAULT_CODEX_HOME,
       cwd,
       model,
-      reasoningEffort,
+      reasoningEffortOverride,
       sandbox,
+      workflow: { usageByRole: {} },
     },
   };
 }
@@ -98,10 +97,9 @@ export function parseArgs(args: string[]): ParsedArgs {
 function parseReasoningEffort(
   value: string | undefined,
   source: string,
-  fallback: ReasoningEffort,
-): ReasoningEffort {
+): ReasoningEffort | undefined {
   if (!value) {
-    return fallback;
+    return undefined;
   }
 
   if (!isReasoningEffort(value)) {

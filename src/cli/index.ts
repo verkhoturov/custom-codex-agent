@@ -1,3 +1,4 @@
+import { WorkflowRunner } from '../agents/workflow-runner.js';
 import type { AppServerClient } from '../app-server/client.js';
 import type { CliState } from '../types.js';
 import { handleCommand } from './commands.js';
@@ -15,13 +16,14 @@ export async function runCli(
   let exiting = false;
   const promptQueue = new PromptQueue();
   const turnRunner = new TurnRunner(state, client, terminal);
+  const workflowRunner = new WorkflowRunner(state, turnRunner, terminal);
 
   client.setServerRequestHandler(request =>
-    promptQueue.run(() => handleServerRequest(request, terminal, turnRunner.workingIndicator)),
+    promptQueue.run(() => handleServerRequest(request, terminal, workflowRunner.workingIndicator)),
   );
 
   const unsubscribeInterrupt = terminal.onInterrupt(() => {
-    if (turnRunner.interrupt()) {
+    if (workflowRunner.interrupt()) {
       return;
     }
 
@@ -53,7 +55,7 @@ export async function runCli(
       }
 
       try {
-        await turnRunner.run(input);
+        await workflowRunner.run(input);
       } catch (error) {
         const message = error instanceof Error ? error.message : String(error);
         terminal.writeError(`\nError: ${message}\n`);
@@ -62,6 +64,6 @@ export async function runCli(
   } finally {
     unsubscribeInterrupt();
     terminal.close();
-    printSessionSummary(terminal, state.tokenUsage, state.threadId);
+    printSessionSummary(terminal, state.workflow.usageByRole, state.workflow.coordinatorThreadId);
   }
 }

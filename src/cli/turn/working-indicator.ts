@@ -7,7 +7,10 @@ export class WorkingIndicator {
   private readonly startedAt = Date.now();
   private visible = false;
 
-  constructor(private readonly terminal: Terminal) {}
+  constructor(
+    private readonly terminal: Terminal,
+    private readonly label = 'working',
+  ) {}
 
   start(): void {
     if (!this.terminal.isTTY || this.interval) {
@@ -50,6 +53,8 @@ export class WorkingIndicator {
     }
 
     const elapsedSeconds = Math.floor((Date.now() - this.startedAt) / 1_000);
-    this.terminal.write(`${CLEAR_LINE}Working (${elapsedSeconds}s, Ctrl+C to interrupt)`);
+    this.terminal.write(
+      `${CLEAR_LINE}[${this.label}] working (${elapsedSeconds}s, Ctrl+C to interrupt)`,
+    );
   }
 }

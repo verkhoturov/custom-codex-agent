@@ -118,6 +118,9 @@ function decodeThreadItem(value: unknown): ThreadItem | undefined {
     return undefined;
   }
   return {
+    agentPath: stringValue(item.agentPath) || undefined,
+    agentsStates: decodeAgentStates(item.agentsStates),
+    agentThreadId: stringValue(item.agentThreadId) || undefined,
     aggregatedOutput: nullableString(item.aggregatedOutput),
     changes: decodeFileChanges(item.changes),
     command: stringValue(item.command) || undefined,
@@ -125,13 +128,35 @@ function decodeThreadItem(value: unknown): ThreadItem | undefined {
     error: item.error,
     exitCode: numberOrNull(item.exitCode),
     id: stringValue(item.id),
+    kind: stringValue(item.kind) || undefined,
+    model: nullableString(item.model),
+    prompt: nullableString(item.prompt),
     query: stringValue(item.query) || undefined,
+    reasoningEffort: nullableString(item.reasoningEffort),
+    receiverThreadIds: stringArray(item.receiverThreadIds),
+    senderThreadId: stringValue(item.senderThreadId) || undefined,
     server: stringValue(item.server) || undefined,
     status: stringValue(item.status) || undefined,
     text: stringValue(item.text) || undefined,
     tool: stringValue(item.tool) || undefined,
     type,
   };
+}
+
+function decodeAgentStates(
+  value: unknown,
+): Record<string, { message: string | null; status: string }> | undefined {
+  const states = asRecord(value);
+  const decoded = Object.fromEntries(
+    Object.entries(states).flatMap(([threadId, state]) => {
+      const record = asRecord(state);
+      const status = stringValue(record.status);
+      return status
+        ? [[threadId, { message: nullableString(record.message) ?? null, status }]]
+        : [];
+    }),
+  );
+  return Object.keys(decoded).length > 0 ? decoded : undefined;
 }
 
 function decodeFileChanges(value: unknown): FileChange[] {
@@ -218,4 +243,12 @@ function numberOrNull(value: unknown): number | null {
 
 function stringValue(value: unknown): string {
   return typeof value === 'string' ? value : '';
+}
+
+function stringArray(value: unknown): string[] | undefined {
+  if (!Array.isArray(value)) {
+    return undefined;
+  }
+  const strings = value.filter((item): item is string => typeof item === 'string');
+  return strings.length > 0 ? strings : undefined;
 }
