@@ -64,7 +64,7 @@ export class TurnRunner {
 
     activeTurn.interruptRequested = true;
     activeTurn.workingIndicator.hide();
-    this.terminal.write('\n[interrupting workflow]\n');
+    this.terminal.write('\n[interrupting current request]\n');
     if (activeTurn.turnId && activeTurn.threadId) {
       activeTurn.interruptSent = true;
       void interruptTurn(this.client, activeTurn.threadId, activeTurn.turnId).catch(error => {

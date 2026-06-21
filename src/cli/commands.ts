@@ -1,11 +1,13 @@
 import { createAgentProfiles } from '../agents/profiles.js';
 import type { AppServerClient } from '../app-server/client.js';
 import { resumeThread } from '../app-server/session.js';
+import { DEFAULT_REASONING_EFFORT } from '../config.js';
 import {
-  AGENT_ROLES,
   type CliState,
+  isAgentMode,
   isReasoningEffort,
   isSandboxMode,
+  MULTI_AGENT_ROLES,
   type ReasoningEffort,
 } from '../types.js';
 import { printStatus, printWelcome } from './session-output.js';
@@ -34,13 +36,13 @@ const COMMANDS: CliCommand[] = [
     usage: '/help',
   },
   {
-    description: 'Start a new multi-agent workflow',
+    description: 'Start a new conversation in the current agent mode',
     execute: startNewThread,
     names: ['/new'],
     usage: '/new',
   },
   {
-    description: 'Resume a saved coordinator thread',
+    description: 'Resume a saved thread in the current agent mode',
     execute: resumeSavedThread,
     names: ['/resume'],
     usage: '/resume <thread-id>',
@@ -52,13 +54,19 @@ const COMMANDS: CliCommand[] = [
     usage: '/status',
   },
   {
-    description: 'Show multi-agent workflow and role profiles',
+    description: 'Show or switch multi/single agent mode',
+    execute: changeAgentMode,
+    names: ['/mode'],
+    usage: '/mode [multi|single]',
+  },
+  {
+    description: 'Show the active agent configuration',
     execute: showAgents,
     names: ['/agents', '/workflow'],
     usage: '/agents',
   },
   {
-    description: 'Show or change implementer model and effort override',
+    description: 'Show or change the primary agent model and effort',
     execute: changeModel,
     names: ['/model'],
     usage: '/model [model] [effort]',
@@ -119,8 +127,8 @@ function showHelp({ terminal }: CommandContext): CommandResult {
 }
 
 function startNewThread({ state, terminal }: CommandContext): CommandResult {
-  resetWorkflow(state);
-  terminal.write('Started a new multi-agent conversation.\n');
+  resetConversation(state);
+  terminal.write(`Started a new ${state.agentMode}-agent conversation.\n`);
   return 'continue';
 }
 
@@ -131,25 +139,25 @@ async function resumeSavedThread(
   const threadId = args.join(' ').trim();
   if (!threadId) {
     terminal.write(
-      `Usage: /resume <thread-id>${state.workflow.coordinatorThreadId ? `\nCurrent: ${state.workflow.coordinatorThreadId}` : ''}\n`,
+      `Usage: /resume <thread-id>${state.conversation.threadId ? `\nCurrent: ${state.conversation.threadId}` : ''}\n`,
     );
     return 'continue';
   }
-  const coordinator = createAgentProfiles(state).coordinator;
-  const coordinatorThreadId = await resumeThread(client, threadId, {
+  const profiles = createAgentProfiles(state);
+  const profile = state.agentMode === 'single' ? profiles.agent : profiles.coordinator;
+  const resumedThreadId = await resumeThread(client, threadId, {
     approvalPolicy: state.approvalPolicy,
     cwd: state.cwd,
-    developerInstructions: coordinator.developerInstructions,
-    ephemeral: coordinator.ephemeral,
-    model: coordinator.model,
-    reasoningEffort: coordinator.reasoningEffort,
-    sandbox: coordinator.sandbox,
+    developerInstructions: profile.developerInstructions,
+    ephemeral: profile.ephemeral,
+    model: profile.model,
+    reasoningEffort: profile.reasoningEffort,
+    sandbox: profile.sandbox,
   });
-  resetWorkflow(state);
-  state.workflow.coordinatorThreadId = coordinatorThreadId;
-  terminal.write(
-    `Resumed coordinator thread ${state.workflow.coordinatorThreadId}. Worker threads will start fresh.\n`,
-  );
+  resetConversation(state);
+  state.conversation.threadId = resumedThreadId;
+  const suffix = state.agentMode === 'multi' ? ' Worker threads will start fresh.' : '';
+  terminal.write(`Resumed ${state.agentMode}-agent thread ${resumedThreadId}.${suffix}\n`);
   return 'continue';
 }
 
@@ -158,20 +166,47 @@ function showStatus({ state, terminal }: CommandContext): CommandResult {
   return 'continue';
 }
 
+function changeAgentMode({ state, terminal }: CommandContext, args: string[]): CommandResult {
+  if (args.length === 0) {
+    terminal.write(`Agent mode: ${state.agentMode}\n`);
+    return 'continue';
+  }
+  const mode = args.join(' ').trim();
+  if (!isAgentMode(mode)) {
+    terminal.write('Usage: /mode <multi|single>\n');
+    return 'continue';
+  }
+  if (mode === state.agentMode) {
+    terminal.write(`Agent mode is already ${mode}.\n`);
+    return 'continue';
+  }
+  state.agentMode = mode;
+  resetConversation(state);
+  terminal.write(`Agent mode changed to ${mode}. Started a new conversation.\n`);
+  return 'continue';
+}
+
 function showAgents({ state, terminal }: CommandContext): CommandResult {
   const profiles = createAgentProfiles(state);
-  terminal.write('Workflow: always enabled\n');
-  for (const role of AGENT_ROLES) {
+  terminal.write(`Agent mode: ${state.agentMode}\n`);
+  if (state.agentMode === 'single') {
+    const profile = profiles.agent;
+    terminal.write(
+      `agent: ${profile.model} (${profile.reasoningEffort}), sandbox=${profile.sandbox}, thread=${state.conversation.threadId || 'not started'}, delegation=disabled\n`,
+    );
+    return 'continue';
+  }
+  for (const role of MULTI_AGENT_ROLES) {
     const profile = profiles[role];
-    const threadId = role === 'coordinator' ? state.workflow.coordinatorThreadId : undefined;
+    const threadId = role === 'coordinator' ? state.conversation.threadId : undefined;
     terminal.write(
       `${role}: ${profile.model} (${describeEffort(state, role, profile.reasoningEffort)}), sandbox=${profile.sandbox}, thread=${threadId || (profile.ephemeral ? 'ephemeral' : 'not started')}\n`,
     );
   }
-  if (state.workflow.lastRoute) {
-    const agents = state.workflow.lastRoute.agents;
+  if (state.conversation.lastRoute) {
+    const agents = state.conversation.lastRoute.agents;
     terminal.write(
-      `Last route: ${agents.length > 0 ? agents.join(', ') : 'coordinator'}; complexity=${state.workflow.lastRoute.complexity}\n`,
+      `Last route: ${agents.length > 0 ? agents.join(', ') : 'coordinator'}; complexity=${state.conversation.lastRoute.complexity}\n`,
     );
   }
   return 'continue';
@@ -179,6 +214,12 @@ function showAgents({ state, terminal }: CommandContext): CommandResult {
 
 function changeModel({ state, terminal }: CommandContext, args: string[]): CommandResult {
   if (args.length === 0) {
+    if (state.agentMode === 'single') {
+      terminal.write(
+        `Agent: ${state.model} (reasoning: ${state.reasoningEffortOverride || DEFAULT_REASONING_EFFORT})\n`,
+      );
+      return 'continue';
+    }
     terminal.write(
       `Implementer: ${state.model} (reasoning: ${state.reasoningEffortOverride || 'dynamic by complexity'})\n`,
     );
@@ -191,9 +232,10 @@ function changeModel({ state, terminal }: CommandContext, args: string[]): Comma
   }
   state.model = settings.model;
   state.reasoningEffortOverride = settings.effort;
-  resetWorkflow(state);
+  resetConversation(state);
+  const label = state.agentMode === 'single' ? 'Agent' : 'Implementer';
   terminal.write(
-    `Implementer changed to ${state.model} (${state.reasoningEffortOverride || 'dynamic reasoning'}). Started a new conversation.\n`,
+    `${label} changed to ${state.model} (${describePrimaryEffort(state)}). Started a new conversation.\n`,
   );
   return 'continue';
 }
@@ -209,14 +251,15 @@ function changePermissions({ state, terminal }: CommandContext, args: string[]):
     return 'continue';
   }
   state.sandbox = mode;
-  resetWorkflow(state);
-  terminal.write(`Implementer sandbox changed to ${mode}. Started a new conversation.\n`);
+  resetConversation(state);
+  const label = state.agentMode === 'single' ? 'Agent' : 'Implementer';
+  terminal.write(`${label} sandbox changed to ${mode}. Started a new conversation.\n`);
   return 'continue';
 }
 
 function clearConversation({ state, terminal }: CommandContext): CommandResult {
   terminal.clear();
-  resetWorkflow(state);
+  resetConversation(state);
   printWelcome(terminal, state);
   return 'continue';
 }
@@ -239,13 +282,13 @@ async function logout({ terminal }: CommandContext, args: string[]): Promise<Com
   return 'logout';
 }
 
-function resetWorkflow(state: CliState): void {
-  state.workflow = { usageByRole: {} };
+function resetConversation(state: CliState): void {
+  state.conversation = { usageByRole: {} };
 }
 
 function describeEffort(
   state: CliState,
-  role: (typeof AGENT_ROLES)[number],
+  role: (typeof MULTI_AGENT_ROLES)[number],
   configured: ReasoningEffort,
 ): string {
   if (role === 'analyzer') {
@@ -255,6 +298,15 @@ function describeEffort(
     return `dynamic by complexity, normal=${configured}`;
   }
   return role === 'implementer' ? `${configured}, fixed override` : configured;
+}
+
+function describePrimaryEffort(state: CliState): string {
+  if (state.reasoningEffortOverride) {
+    return `${state.reasoningEffortOverride}, fixed reasoning`;
+  }
+  return state.agentMode === 'single'
+    ? `${DEFAULT_REASONING_EFFORT} reasoning`
+    : 'dynamic reasoning';
 }
 
 interface ModelSettings {

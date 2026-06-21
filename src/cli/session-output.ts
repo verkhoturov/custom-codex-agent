@@ -1,44 +1,32 @@
 import { createAgentProfiles } from '../agents/profiles.js';
 import type { TokenUsageBreakdown } from '../app-server/protocol.js';
-import { AGENT_ROLES, type CliState } from '../types.js';
 import { APP_SERVER_CLIENT_INFO } from '../config.js';
+import { AGENT_ROLES, type CliState } from '../types.js';
 import type { Terminal } from './terminal.js';
 
 const numberFormat = new Intl.NumberFormat('en-US');
 
 export function printWelcome(terminal: Terminal, state: CliState): void {
-  const profiles = createAgentProfiles(state);
-
   terminal.write(`
 ----------------------------------------------------------------------------------
 
 ${APP_SERVER_CLIENT_INFO.title} (${APP_SERVER_CLIENT_INFO.version})
 
-cwd: ${state.cwd}
-coordinator: ${profiles.coordinator.model} (${profiles.coordinator.reasoningEffort})
-analyzer: ${profiles.analyzer.model} (dynamic, normal=${profiles.analyzer.reasoningEffort})
-implementer: ${profiles.implementer.model} (${state.reasoningEffortOverride ? `${state.reasoningEffortOverride}, fixed` : `dynamic, normal=${profiles.implementer.reasoningEffort}`})
-implementer sandbox: ${state.sandbox}
-approvals: ${state.approvalPolicy}
-Run /help for commands. Ctrl+C cancels the workflow or exits while idle.
+${configurationSummary(state)}
+Run /help for commands. Ctrl+C cancels the current request or exits while idle.
 
 ----------------------------------------------------------------------------------\n`);
 }
 
 export function printStatus(terminal: Terminal, state: CliState): void {
-  const profiles = createAgentProfiles(state);
-
-  terminal.write(`cwd: ${state.cwd}
-coordinator: ${profiles.coordinator.model} (${profiles.coordinator.reasoningEffort})
-analyzer: ${profiles.analyzer.model} (dynamic, normal=${profiles.analyzer.reasoningEffort})
-implementer: ${profiles.implementer.model} (${state.reasoningEffortOverride ? `${state.reasoningEffortOverride}, fixed` : `dynamic, normal=${profiles.implementer.reasoningEffort}`})
-implementer sandbox: ${state.sandbox}
-approvals: ${state.approvalPolicy}
-Coordinator thread: ${state.workflow.coordinatorThreadId || 'not started'}\n`);
+  const threadLabel = state.agentMode === 'single' ? 'Agent thread' : 'Coordinator thread';
+  terminal.write(
+    `${configurationSummary(state)}\n${threadLabel}: ${state.conversation.threadId || 'not started'}\n`,
+  );
 }
 
 export function printSessionSummary(terminal: Terminal, state: CliState): void {
-  const usageByRole = state.workflow.usageByRole;
+  const usageByRole = state.conversation.usageByRole;
   const total = sumUsage(Object.values(usageByRole));
   terminal.write(
     `\nToken usage: total=${formatNumber(total.totalTokens)} input=${formatNumber(total.inputTokens)}${total.cachedInputTokens ? ` (+ ${formatNumber(total.cachedInputTokens)} cached)` : ''} output=${formatNumber(total.outputTokens)}\n`,
@@ -53,13 +41,38 @@ export function printSessionSummary(terminal: Terminal, state: CliState): void {
     }
   }
 
-  if (state.workflow.coordinatorThreadId) {
+  if (state.conversation.threadId) {
     const cwd = shellQuote(state.cwd);
-    const threadId = shellQuote(state.workflow.coordinatorThreadId);
+    const threadId = shellQuote(state.conversation.threadId);
+    const model = shellQuote(state.model);
+    const effort = state.reasoningEffortOverride
+      ? ` --reasoning-effort ${state.reasoningEffortOverride}`
+      : '';
     terminal.write(
-      `To continue the coordinator session, run command "npm run resume -- ${threadId} -C ${cwd}"\n`,
+      `To continue this ${state.agentMode}-agent session, run command "npm run resume -- ${threadId} --agent-mode ${state.agentMode} --model ${model}${effort} --sandbox ${state.sandbox} -C ${cwd}"\n`,
     );
   }
+}
+
+function configurationSummary(state: CliState): string {
+  const profiles = createAgentProfiles(state);
+  const lines = [`cwd: ${state.cwd}`, `agent mode: ${state.agentMode}`];
+  if (state.agentMode === 'single') {
+    lines.push(
+      `agent: ${profiles.agent.model} (${profiles.agent.reasoningEffort})`,
+      `agent sandbox: ${state.sandbox}`,
+      'subagent delegation: disabled',
+    );
+  } else {
+    lines.push(
+      `coordinator: ${profiles.coordinator.model} (${profiles.coordinator.reasoningEffort})`,
+      `analyzer: ${profiles.analyzer.model} (dynamic, normal=${profiles.analyzer.reasoningEffort})`,
+      `implementer: ${profiles.implementer.model} (${state.reasoningEffortOverride ? `${state.reasoningEffortOverride}, fixed` : `dynamic, normal=${profiles.implementer.reasoningEffort}`})`,
+      `implementer sandbox: ${state.sandbox}`,
+    );
+  }
+  lines.push(`approvals: ${state.approvalPolicy}`);
+  return lines.join('\n');
 }
 
 function shellQuote(value: string): string {

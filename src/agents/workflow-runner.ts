@@ -1,15 +1,14 @@
-import type { TokenUsageBreakdown } from '../app-server/protocol.js';
 import type { Terminal } from '../cli/terminal.js';
 import type { TurnRunner, TurnRunResult } from '../cli/turn/runner.js';
 import type {
   AgentProfile,
-  AgentRole,
   CliState,
   ReasoningEffort,
   RoutingDecision,
   TaskComplexity,
 } from '../types.js';
 import { createAgentProfiles } from './profiles.js';
+import { addUsage } from './usage.js';
 
 const ROUTING_SCHEMA: Record<string, unknown> = {
   additionalProperties: false,
@@ -60,13 +59,13 @@ export class WorkflowRunner {
         profiles.coordinator,
         createRoutingPrompt(input),
         'silent',
-        this.state.workflow.coordinatorThreadId,
+        this.state.conversation.threadId,
         ROUTING_SCHEMA,
         'coordinator:route',
       );
-      this.state.workflow.coordinatorThreadId = routingResult.threadId;
+      this.state.conversation.threadId = routingResult.threadId;
       const route = decodeRoutingDecision(routingResult.finalText);
-      this.state.workflow.lastRoute = route;
+      this.state.conversation.lastRoute = route;
       this.terminal.write(
         `[coordinator:route] selected: ${route.agents.length > 0 ? route.agents.join(', ') : 'coordinator only'}; complexity=${route.complexity}\n`,
       );
@@ -100,11 +99,11 @@ export class WorkflowRunner {
         profiles.coordinator,
         createCoordinatorPrompt(input, route, analysis, implementation),
         'full',
-        this.state.workflow.coordinatorThreadId,
+        this.state.conversation.threadId,
         undefined,
         'coordinator:final',
       );
-      this.state.workflow.coordinatorThreadId = coordinatorResult.threadId;
+      this.state.conversation.threadId = coordinatorResult.threadId;
     } finally {
       this.active = false;
     }
@@ -252,20 +251,6 @@ const COMPLEXITY_EFFORTS: Record<TaskComplexity, ReasoningEffort> = {
 
 function isTaskComplexity(value: unknown): value is TaskComplexity {
   return value === 'simple' || value === 'normal' || value === 'complex' || value === 'critical';
-}
-
-function addUsage(state: CliState, role: AgentRole, usage: TokenUsageBreakdown | undefined): void {
-  if (!usage) {
-    return;
-  }
-  const current = state.workflow.usageByRole[role];
-  state.workflow.usageByRole[role] = {
-    cachedInputTokens: (current?.cachedInputTokens || 0) + usage.cachedInputTokens,
-    inputTokens: (current?.inputTokens || 0) + usage.inputTokens,
-    outputTokens: (current?.outputTokens || 0) + usage.outputTokens,
-    reasoningOutputTokens: (current?.reasoningOutputTokens || 0) + usage.reasoningOutputTokens,
-    totalTokens: (current?.totalTokens || 0) + usage.totalTokens,
-  };
 }
 
 function truncate(value: string, maxLength: number): string {

@@ -1,4 +1,4 @@
-import { WorkflowRunner } from '../agents/workflow-runner.js';
+import { AgentRunner } from '../agents/runner.js';
 import type { AppServerClient } from '../app-server/client.js';
 import type { CliState } from '../types.js';
 import { type CommandResult, handleCommand } from './commands.js';
@@ -18,14 +18,14 @@ export async function runCli(
   let exitResult: Exclude<CommandResult, 'continue'> = 'exit';
   const promptQueue = new PromptQueue();
   const turnRunner = new TurnRunner(state, client, terminal);
-  const workflowRunner = new WorkflowRunner(state, turnRunner, terminal);
+  const agentRunner = new AgentRunner(state, turnRunner, terminal);
 
   client.setServerRequestHandler(request =>
-    promptQueue.run(() => handleServerRequest(request, terminal, workflowRunner.workingIndicator)),
+    promptQueue.run(() => handleServerRequest(request, terminal, agentRunner.workingIndicator)),
   );
 
   const unsubscribeInterrupt = terminal.onInterrupt(() => {
-    if (workflowRunner.interrupt()) {
+    if (agentRunner.interrupt()) {
       return;
     }
 
@@ -61,7 +61,7 @@ export async function runCli(
       }
 
       try {
-        await workflowRunner.run(input);
+        await agentRunner.run(input);
       } catch (error) {
         const message = error instanceof Error ? error.message : String(error);
         terminal.writeError(`\nError: ${message}\n`);
