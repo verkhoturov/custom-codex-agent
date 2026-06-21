@@ -2,7 +2,9 @@
 
 import { CodexAppServerClient } from './app-server/client.js';
 import { checkCodexCli, runCli } from './cli/index.js';
-import { loadLocalEnv, parseArgs, requireOpenAiApiKey, usage } from './config.js';
+import { usage } from './config.js';
+import { parseArgs } from './utils/cli-arguments.js';
+import { loadLocalEnv, requireOpenAiApiKey } from './utils/environment.js';
 
 async function main(): Promise<void> {
   loadLocalEnv();

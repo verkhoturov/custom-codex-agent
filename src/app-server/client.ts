@@ -1,7 +1,7 @@
 import { type ChildProcessWithoutNullStreams, spawn } from 'node:child_process';
 import { createInterface, type Interface } from 'node:readline';
 
-import { ensureCodexHome } from '../codex-home.js';
+import { ensureCodexHome } from '../utils/codex-home.js';
 import {
   type GetAccountResponse,
   isRpcNotification,

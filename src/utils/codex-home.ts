@@ -1,11 +1,5 @@
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { fileURLToPath } from 'node:url';
-
-export const DEFAULT_CODEX_HOME = join(
-  fileURLToPath(new URL('..', import.meta.url)),
-  '.codex-data',
-);
 
 export function ensureCodexHome(codexHome: string): void {
   mkdirSync(codexHome, { mode: 0o700, recursive: true });
