@@ -23,6 +23,7 @@ Options:
   -C, --cwd <path>        Working directory (default: current directory)
   -m, --model <model>     Implementer model (default: ${DEFAULT_MODEL})
   -r, --reasoning-effort <effort>  Override dynamic implementer effort
+  --resume <thread-id>    Resume a coordinator thread on startup
   -s, --sandbox <mode>    Implementer sandbox: read-only or workspace-write
   -h, --help              Show this help
 

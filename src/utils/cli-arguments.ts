@@ -19,16 +19,15 @@ const REASONING_EFFORT_HELP = 'none, minimal, low, medium, high, or xhigh';
 
 export interface ParsedArgs {
   help: boolean;
+  resumeThreadId?: string;
   state: CliState;
 }
 
 export function parseArgs(args: string[]): ParsedArgs {
   let cwd = process.cwd();
-  let model = process.env.CODEX_MODEL || process.env.OPENAI_MODEL || DEFAULT_MODEL;
-  let reasoningEffortOverride = parseReasoningEffort(
-    process.env.CODEX_REASONING_EFFORT || process.env.OPENAI_REASONING_EFFORT,
-    'CODEX_REASONING_EFFORT',
-  );
+  let model = DEFAULT_MODEL;
+  let reasoningEffortOverride: ReasoningEffort | undefined;
+  let resumeThreadId: string | undefined;
   let sandbox: SandboxMode = DEFAULT_SANDBOX;
   let help = false;
 
@@ -63,6 +62,11 @@ export function parseArgs(args: string[]): ParsedArgs {
       continue;
     }
 
+    if (argument === '--resume') {
+      resumeThreadId = requireValue(args, ++index, argument);
+      continue;
+    }
+
     if (argument === '--sandbox' || argument === '-s') {
       const value = requireValue(args, ++index, argument);
       if (!isSandboxMode(value)) {
@@ -82,6 +86,7 @@ export function parseArgs(args: string[]): ParsedArgs {
 
   return {
     help,
+    resumeThreadId,
     state: {
       approvalPolicy: DEFAULT_APPROVAL_POLICY,
       codexHome: DEFAULT_CODEX_HOME,
@@ -92,21 +97,6 @@ export function parseArgs(args: string[]): ParsedArgs {
       workflow: { usageByRole: {} },
     },
   };
-}
-
-function parseReasoningEffort(
-  value: string | undefined,
-  source: string,
-): ReasoningEffort | undefined {
-  if (!value) {
-    return undefined;
-  }
-
-  if (!isReasoningEffort(value)) {
-    throw new Error(`Unsupported ${source}: ${value}. Use ${REASONING_EFFORT_HELP}.`);
-  }
-
-  return value;
 }
 
 function requireValue(args: string[], index: number, flag: string): string {

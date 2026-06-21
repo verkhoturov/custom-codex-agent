@@ -21,6 +21,8 @@ interface PendingRequest {
 }
 
 export interface AppServerClient {
+  hasApiKeyAuthentication(): Promise<boolean>;
+  loginWithApiKey(apiKey: string): Promise<void>;
   onExit(handler: (error: Error) => void): () => void;
   onNotification(handler: NotificationHandler): () => void;
   request<TResult>(method: string, params?: unknown): Promise<TResult>;
@@ -28,7 +30,6 @@ export interface AppServerClient {
 }
 
 export interface CodexAppServerClientOptions {
-  apiKey: string;
   codexHome: string;
   cwd: string;
 }
@@ -94,19 +95,36 @@ export class CodexAppServerClient implements AppServerClient {
       },
     });
     this.notify('initialized');
+  }
 
+  async hasApiKeyAuthentication(): Promise<boolean> {
+    const account = await this.request<GetAccountResponse>('account/read', {
+      refreshToken: false,
+    });
+
+    if (!account.account) {
+      return false;
+    }
+
+    if (account.account.type !== 'apiKey') {
+      throw new Error(
+        `Codex app-server selected unsupported authentication: ${account.account.type}`,
+      );
+    }
+
+    return true;
+  }
+
+  async loginWithApiKey(apiKey: string): Promise<void> {
     const login = await this.request<LoginAccountResponse>('account/login/start', {
-      apiKey: this.options.apiKey,
+      apiKey,
       type: 'apiKey',
     });
     if (login.type !== 'apiKey') {
       throw new Error(`Codex app-server selected unsupported authentication: ${login.type}`);
     }
 
-    const account = await this.request<GetAccountResponse>('account/read', {
-      refreshToken: false,
-    });
-    if (account.account?.type !== 'apiKey') {
+    if (!(await this.hasApiKeyAuthentication())) {
       throw new Error('Codex app-server did not activate API key authentication');
     }
   }

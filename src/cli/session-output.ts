@@ -1,6 +1,6 @@
 import { createAgentProfiles } from '../agents/profiles.js';
 import type { TokenUsageBreakdown } from '../app-server/protocol.js';
-import { AGENT_ROLES, type AgentRole, type CliState } from '../types.js';
+import { AGENT_ROLES, type CliState } from '../types.js';
 import type { Terminal } from './terminal.js';
 
 const numberFormat = new Intl.NumberFormat('en-US');
@@ -28,11 +28,8 @@ approvals: ${state.approvalPolicy}
 Coordinator thread: ${state.workflow.coordinatorThreadId || 'not started'}\n`);
 }
 
-export function printSessionSummary(
-  terminal: Terminal,
-  usageByRole: Partial<Record<AgentRole, TokenUsageBreakdown>>,
-  threadId: string | undefined,
-): void {
+export function printSessionSummary(terminal: Terminal, state: CliState): void {
+  const usageByRole = state.workflow.usageByRole;
   const total = sumUsage(Object.values(usageByRole));
   terminal.write(
     `\nToken usage: total=${formatNumber(total.totalTokens)} input=${formatNumber(total.inputTokens)}${total.cachedInputTokens ? ` (+ ${formatNumber(total.cachedInputTokens)} cached)` : ''} output=${formatNumber(total.outputTokens)}\n`,
@@ -47,11 +44,17 @@ export function printSessionSummary(
     }
   }
 
-  if (threadId) {
+  if (state.workflow.coordinatorThreadId) {
+    const cwd = shellQuote(state.cwd);
+    const threadId = shellQuote(state.workflow.coordinatorThreadId);
     terminal.write(
-      `To continue the coordinator session, run npm run codex -- resume ${threadId}\n`,
+      `To continue the coordinator session, run npm run resume -- ${threadId} -C ${cwd}\n`,
     );
   }
+}
+
+function shellQuote(value: string): string {
+  return `'${value.replaceAll("'", `'"'"'`)}'`;
 }
 
 function sumUsage(usages: Array<TokenUsageBreakdown | undefined>): TokenUsageBreakdown {

@@ -12,6 +12,7 @@ export async function runCli(
   state: CliState,
   client: AppServerClient,
   terminal: Terminal = new NodeTerminal(),
+  resumeThreadId?: string,
 ): Promise<void> {
   let exiting = false;
   const promptQueue = new PromptQueue();
@@ -31,9 +32,12 @@ export async function runCli(
     terminal.close();
   });
 
-  printWelcome(terminal, state);
-
   try {
+    printWelcome(terminal, state);
+    if (resumeThreadId) {
+      await handleCommand(`/resume ${resumeThreadId}`, { client, state, terminal });
+    }
+
     while (!exiting) {
       let input: string;
       try {
@@ -64,6 +68,6 @@ export async function runCli(
   } finally {
     unsubscribeInterrupt();
     terminal.close();
-    printSessionSummary(terminal, state.workflow.usageByRole, state.workflow.coordinatorThreadId);
+    printSessionSummary(terminal, state);
   }
 }
